@@ -1,15 +1,19 @@
-﻿@page "/login"
+@page "/login"
+@layout ProductManagement.Components.Layout.AuthLayout
+@rendermode InteractiveServer
 @using ProductManagement.Features.Services.Interfaces
 @using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inject NavigationManager Navigation
 @inject IUserService UserService
+@inject ProtectedSessionStorage SessionStorage
 
 <div class="container mt-5">
     <div class="row justify-content-center">
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="text-center">Login</h3>
+                    <h3 class="text-center"><i class="bi bi-person-circle me-2"></i>Login</h3>
                 </div>
                 <div class="card-body">
                     @if (!string.IsNullOrEmpty(ErrorMessage))
@@ -26,7 +30,7 @@
                         </div>
                     }
 
-                    <EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
+                    <EditForm Model="@loginModel" OnValidSubmit="HandleLogin" FormName="loginForm">
                         <DataAnnotationsValidator />
                         <div class="form-group mb-3">
                             <label for="email">Email</label>
@@ -68,7 +72,8 @@
 </div>
 
 @code {
-    private LoginModel loginModel = new();
+    [SupplyParameterFromForm]
+    public LoginModel loginModel { get; set; } = new();
     private string? ErrorMessage;
     private string? SuccessMessage;
     private bool isLoading = false;
@@ -81,18 +86,19 @@
 
         try
         {
-            var result = await UserService.LoginAsync(loginModel.Email, loginModel.Password);
+            var (success, message, user) = await UserService.LoginAsync(loginModel.Email, loginModel.Password);
 
-            if (result.Success)
+            if (success && user != null)
             {
-                SuccessMessage = result.Message;
-                // Store user session/token here
-                // Navigate to dashboard
-                Navigation.NavigateTo("/dashboard");
+                SuccessMessage = message;
+                // Store user in session
+                await SessionStorage.SetAsync("currentUser", System.Text.Json.JsonSerializer.Serialize(user));
+                await SessionStorage.SetAsync("isLoggedIn", "true");
+                Navigation.NavigateTo("/");
             }
             else
             {
-                ErrorMessage = result.Message;
+                ErrorMessage = message;
             }
         }
         catch (Exception ex)

@@ -1,0 +1,289 @@
+@page "/products"
+@rendermode InteractiveServer
+@using ProductManagement.Features.Data.Models
+@using ProductManagement.Features.Services.Interfaces
+@inject IProductService ProductService
+@inject IBrandService BrandService
+@inject ICategoryService CategoryService
+@inject ISupplierService SupplierService
+
+<PageTitle>Products</PageTitle>
+
+<h1><i class="bi bi-box-seam me-2"></i>Products</h1>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="ShowAddModal">Add New Product</button>
+</div>
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (products == null || !products.Any())
+{
+    <p>No products found.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Brand</th>
+                <th>Category</th>
+                <th>Supplier</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var product in products)
+            {
+                <tr>
+                    <td>@product.Name</td>
+                    <td>@product.Description</td>
+                    <td>@product.Price.ToString("C")</td>
+                    <td>@product.Stock</td>
+                    <td>@product.Brand?.Name ?? "N/A"</td>
+                    <td>@product.Category?.Name ?? "N/A"</td>
+                    <td>@product.Supplier?.Name ?? "N/A"</td>
+                    <td>
+                        @if (product.IsActive)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Inactive</span>
+                        }
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-info" @onclick="() => EditProduct(product)">Edit</button>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteProduct(product.Id)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditMode ? "Edit Product" : "Add New Product")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Name</label>
+                            <input class="form-control" @bind="editingProduct.Name" placeholder="Enter product name" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Price</label>
+                            <input type="number" class="form-control" @bind="editingProduct.Price" placeholder="0.00" step="0.01" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Stock</label>
+                            <input type="number" class="form-control" @bind="editingProduct.Stock" placeholder="0" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Brand</label>
+                            <select class="form-select" @bind="editingProduct.BrandId">
+                                <option value="0">Select Brand</option>
+                                @if (brands != null)
+                                {
+                                    @foreach (var brand in brands)
+                                    {
+                                        <option value="@brand.Id">@brand.Name</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Category</label>
+                            <select class="form-select" @bind="editingProduct.CategoryId">
+                                <option value="0">Select Category</option>
+                                @if (categories != null)
+                                {
+                                    @foreach (var category in categories)
+                                    {
+                                        <option value="@category.Id">@category.Name</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Supplier</label>
+                            <select class="form-select" @bind="editingProduct.SupplierId">
+                                <option value="0">Select Supplier</option>
+                                @if (suppliers != null)
+                                {
+                                    @foreach (var supplier in suppliers)
+                                    {
+                                        <option value="@supplier.Id">@supplier.Name</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" @bind="editingProduct.Description" placeholder="Enter description" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Image URL</label>
+                        <input class="form-control" @bind="editingProduct.ImageUrl" placeholder="Enter image URL" />
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" @bind="editingProduct.IsActive" />
+                        <label class="form-check-label">Active</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveProduct">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IEnumerable<Product>? products;
+    private IEnumerable<Brand>? brands;
+    private IEnumerable<Category>? categories;
+    private IEnumerable<Supplier>? suppliers;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private string? successMessage;
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private Product editingProduct = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        products = await ProductService.GetAllProductsAsync();
+        brands = await BrandService.GetAllBrandsAsync();
+        categories = await CategoryService.GetAllCategoriesAsync();
+        suppliers = await SupplierService.GetAllSuppliersAsync();
+        isLoading = false;
+    }
+
+    private void ShowAddModal()
+    {
+        isEditMode = false;
+        editingProduct = new Product { IsActive = true, Stock = 0, Price = 0 };
+        showModal = true;
+        errorMessage = null;
+    }
+
+    private void EditProduct(Product product)
+    {
+        isEditMode = true;
+        editingProduct = new Product
+        {
+            Id = product.Id,
+            Name = product.Name,
+            Description = product.Description,
+            Price = product.Price,
+            Stock = product.Stock,
+            ImageUrl = product.ImageUrl,
+            IsActive = product.IsActive,
+            BrandId = product.BrandId,
+            CategoryId = product.CategoryId,
+            SupplierId = product.SupplierId,
+            CreatedAt = product.CreatedAt
+        };
+        showModal = true;
+        errorMessage = null;
+    }
+
+    private async Task SaveProduct()
+    {
+        if (string.IsNullOrWhiteSpace(editingProduct.Name))
+        {
+            errorMessage = "Product name is required.";
+            return;
+        }
+
+        if (editingProduct.Price < 0)
+        {
+            errorMessage = "Price must be positive.";
+            return;
+        }
+
+        if (editingProduct.Stock < 0)
+        {
+            errorMessage = "Stock cannot be negative.";
+            return;
+        }
+
+        var result = isEditMode
+            ? await ProductService.UpdateProductAsync(editingProduct)
+            : await ProductService.CreateProductAsync(editingProduct);
+
+        if (result.Success)
+        {
+            successMessage = isEditMode ? "Product updated successfully." : "Product added successfully.";
+            showModal = false;
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Message;
+        }
+    }
+
+    private async Task DeleteProduct(int id)
+    {
+        var result = await ProductService.DeleteProductAsync(id);
+        if (result.Success)
+        {
+            successMessage = "Product deleted successfully.";
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Message;
+        }
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        errorMessage = null;
+    }
+}

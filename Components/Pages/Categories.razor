@@ -1,0 +1,197 @@
+@page "/categories"
+@rendermode InteractiveServer
+@using ProductManagement.Features.Data.Models
+@using ProductManagement.Features.Services.Interfaces
+@inject ICategoryService CategoryService
+
+<PageTitle>Categories</PageTitle>
+
+<h1><i class="bi bi-grid me-2"></i>Categories</h1>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="ShowAddModal">Add New Category</button>
+</div>
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (categories == null || !categories.Any())
+{
+    <p>No categories found.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Created At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var category in categories)
+            {
+                <tr>
+                    <td>@category.Name</td>
+                    <td>@category.Description</td>
+                    <td>
+                        @if (category.IsActive)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Inactive</span>
+                        }
+                    </td>
+                    <td>@category.CreatedAt.ToString("MM/dd/yyyy")</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" @onclick="() => EditCategory(category)">Edit</button>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteCategory(category.Id)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditMode ? "Edit Category" : "Add New Category")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input class="form-control" @bind="editingCategory.Name" placeholder="Enter category name" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" @bind="editingCategory.Description" placeholder="Enter description" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" @bind="editingCategory.IsActive" />
+                        <label class="form-check-label">Active</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveCategory">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IEnumerable<Category>? categories;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private string? successMessage;
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private Category editingCategory = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        categories = await CategoryService.GetAllCategoriesAsync();
+        isLoading = false;
+    }
+
+    private void ShowAddModal()
+    {
+        isEditMode = false;
+        editingCategory = new Category { IsActive = true };
+        showModal = true;
+        errorMessage = null;
+    }
+
+    private void EditCategory(Category category)
+    {
+        isEditMode = true;
+        editingCategory = new Category
+        {
+            Id = category.Id,
+            Name = category.Name,
+            Description = category.Description,
+            IsActive = category.IsActive,
+            CreatedAt = category.CreatedAt
+        };
+        showModal = true;
+        errorMessage = null;
+    }
+
+    private async Task SaveCategory()
+    {
+        if (string.IsNullOrWhiteSpace(editingCategory.Name))
+        {
+            errorMessage = "Category name is required.";
+            return;
+        }
+
+        var result = isEditMode
+            ? await CategoryService.UpdateCategoryAsync(editingCategory)
+            : await CategoryService.CreateCategoryAsync(editingCategory);
+
+        if (result.Success)
+        {
+            successMessage = isEditMode ? "Category updated successfully." : "Category added successfully.";
+            showModal = false;
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Message;
+        }
+    }
+
+    private async Task DeleteCategory(int id)
+    {
+        var result = await CategoryService.DeleteCategoryAsync(id);
+        if (result.Success)
+        {
+            successMessage = "Category deleted successfully.";
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Message;
+        }
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        errorMessage = null;
+    }
+}

@@ -1,7 +1,9 @@
-﻿@page "/register"
-@using ProductManagement.Features.Services.Interfaces
-@using ProductManagement.Features.Data.Models
+@page "/register"
+@layout ProductManagement.Components.Layout.AuthLayout
+@rendermode InteractiveServer
 @using System.ComponentModel.DataAnnotations
+@using ProductManagement.Features.Data.Models
+@using ProductManagement.Features.Services.Interfaces
 @inject NavigationManager Navigation
 @inject IUserService UserService
 
@@ -10,7 +12,7 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="text-center">Register</h3>
+                    <h3 class="text-center"><i class="bi bi-person-plus me-2"></i>Register</h3>
                 </div>
                 <div class="card-body">
                     @if (!string.IsNullOrEmpty(ErrorMessage))
@@ -27,7 +29,7 @@
                         </div>
                     }
 
-                    <EditForm Model="@registerModel" OnValidSubmit="HandleRegister">
+                    <EditForm Model="@registerModel" OnValidSubmit="HandleRegister" FormName="registerForm">
                         <DataAnnotationsValidator />
                         <div class="form-group mb-3">
                             <label for="fullName">Full Name</label>
@@ -89,7 +91,8 @@
 </div>
 
 @code {
-    private RegisterModel registerModel = new();
+    [SupplyParameterFromForm]
+    public RegisterModel registerModel { get; set; } = new();
     private string? ErrorMessage;
     private string? SuccessMessage;
     private bool isLoading = false;

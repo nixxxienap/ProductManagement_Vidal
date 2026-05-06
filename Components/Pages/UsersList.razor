@@ -1,0 +1,260 @@
+@page "/users-list"
+@rendermode InteractiveServer
+@using ProductManagement.Features.Data.Models
+@using ProductManagement.Features.Services.Interfaces
+@inject IUserService UserService
+
+<PageTitle>Users</PageTitle>
+
+<h1><i class="bi bi-people me-2"></i>Users</h1>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="ShowAddModal">Add New User</button>
+</div>
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (users == null || !users.Any())
+{
+    <p>No users found.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Full Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Phone</th>
+                <th>Last Login</th>
+                <th>Created At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in users)
+            {
+                <tr>
+                    <td>@user.FullName</td>
+                    <td>@user.Email</td>
+                    <td>@user.Role</td>
+                    <td>
+                        @if (user.IsActive)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Inactive</span>
+                        }
+                    </td>
+                    <td>@user.PhoneNumber</td>
+                    <td>@(user.LastLoginAt?.ToString("MM/dd/yyyy HH:mm") ?? "Never")</td>
+                    <td>@user.CreatedAt.ToString("MM/dd/yyyy")</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" @onclick="() => EditUser(user)">Edit</button>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteUser(user.Id)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditMode ? "Edit User" : "Add New User")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input class="form-control" @bind="editingUser.FullName" placeholder="Enter full name" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" @bind="editingUser.Email" placeholder="Enter email" />
+                    </div>
+                    @if (!isEditMode)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" @bind="password" placeholder="Enter password" />
+                        </div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <select class="form-select" @bind="editingUser.Role">
+                            <option value="@UserRole.Admin">Admin</option>
+                            <option value="@UserRole.Manager">Manager</option>
+                            <option value="@UserRole.Staff">Staff</option>
+                            <option value="@UserRole.Viewer">Viewer</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" @bind="editingUser.Status">
+                            <option value="@UserStatus.Active">Active</option>
+                            <option value="@UserStatus.Inactive">Inactive</option>
+                            <option value="@UserStatus.Suspended">Suspended</option>
+                            <option value="@UserStatus.PendingVerification">Pending Verification</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Phone Number</label>
+                        <input class="form-control" @bind="editingUser.PhoneNumber" placeholder="Enter phone number" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveUser">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IEnumerable<Users>? users;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private string? successMessage;
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private Users editingUser = new();
+    private string password = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        users = await UserService.GetAllUsersAsync();
+        isLoading = false;
+    }
+
+    private void ShowAddModal()
+    {
+        isEditMode = false;
+        editingUser = new Users { Role = UserRole.Staff, Status = UserStatus.Active };
+        password = string.Empty;
+        showModal = true;
+        errorMessage = null;
+    }
+
+    private void EditUser(Users user)
+    {
+        isEditMode = true;
+        editingUser = new Users
+        {
+            Id = user.Id,
+            FullName = user.FullName,
+            Email = user.Email,
+            Role = user.Role,
+            Status = user.Status,
+            PhoneNumber = user.PhoneNumber,
+            ProfileImageUrl = user.ProfileImageUrl,
+            CreatedAt = user.CreatedAt
+        };
+        password = string.Empty;
+        showModal = true;
+        errorMessage = null;
+    }
+
+    private async Task SaveUser()
+    {
+        if (string.IsNullOrWhiteSpace(editingUser.FullName))
+        {
+            errorMessage = "Full name is required.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(editingUser.Email))
+        {
+            errorMessage = "Email is required.";
+            return;
+        }
+
+        if (!isEditMode && string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage = "Password is required for new users.";
+            return;
+        }
+
+        if (!isEditMode)
+        {
+            var result = await UserService.RegisterAsync(editingUser.FullName, editingUser.Email, password, editingUser.Role);
+            if (result.Success)
+            {
+                successMessage = "User added successfully.";
+                showModal = false;
+                await LoadData();
+            }
+            else
+            {
+                errorMessage = result.Message;
+            }
+        }
+        else
+        {
+            var result = await UserService.UpdateUserAsync(editingUser);
+            if (result.Success)
+            {
+                successMessage = "User updated successfully.";
+                showModal = false;
+                await LoadData();
+            }
+            else
+            {
+                errorMessage = result.Message;
+            }
+        }
+    }
+
+    private async Task DeleteUser(int id)
+    {
+        var result = await UserService.DeleteUserAsync(id);
+        if (result.Success)
+        {
+            successMessage = "User deleted successfully.";
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Message;
+        }
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        errorMessage = null;
+    }
+}

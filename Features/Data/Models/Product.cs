@@ -3,20 +3,7 @@
     public class Product
     {
         public int Id { get; set; }
-
-        private string name = string.Empty;
-        private string? name1;
-
-        public string GetName()
-        {
-            return name;
-        }
-
-        public void SetName(string value)
-        {
-            name = value;
-        }
-
+        public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public decimal Price { get; set; }
         public int Stock { get; set; }
@@ -32,6 +19,5 @@
 
         public int SupplierId { get; set; }
         public Supplier? Supplier { get; set; }
-        public string? Name { get => name1; set => name1 = value; }
     }
 }

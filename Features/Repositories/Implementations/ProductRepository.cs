@@ -9,13 +9,21 @@ namespace ProductManagement.Features.Repositories.Implementations
     {
         public ProductRepository(AppDbContext context) : base(context) { }
 
+        public override async Task<IEnumerable<Product>> GetAllAsync() =>
+            await _context.Products
+                .Include(p => p.Brand)
+                .Include(p => p.Category)
+                .Include(p => p.Supplier)
+                .OrderBy(p => p.Name)
+                .ToListAsync();
+
         public async Task<IEnumerable<Product>> GetActiveProductsAsync() =>
             await _context.Products
                 .Include(p => p.Brand)
                 .Include(p => p.Category)
                 .Include(p => p.Supplier)
                 .Where(p => p.IsActive)
-                .OrderBy(p => p.GetName())
+                .OrderBy(p => p.Name)
                 .ToListAsync();
 
         public async Task<IEnumerable<Product>> GetByBrandAsync(int brandId) =>
@@ -44,7 +52,7 @@ namespace ProductManagement.Features.Repositories.Implementations
             await _context.Products
                 .Include(p => p.Brand)
                 .Include(p => p.Category)
-                .Where(p => p.GetName().Contains(keyword) ||
+                .Where(p => p.Name.Contains(keyword) ||
                             (p.Description != null && p.Description.Contains(keyword)))
                 .ToListAsync();
     }

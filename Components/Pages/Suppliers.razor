@@ -1,0 +1,218 @@
+@page "/suppliers"
+@rendermode InteractiveServer
+@using ProductManagement.Features.Data.Models
+@using ProductManagement.Features.Services.Interfaces
+@inject ISupplierService SupplierService
+
+<PageTitle>Suppliers</PageTitle>
+
+<h1><i class="bi bi-truck me-2"></i>Suppliers</h1>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="ShowAddModal">Add New Supplier</button>
+</div>
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (suppliers == null || !suppliers.Any())
+{
+    <p>No suppliers found.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Contact Person</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Address</th>
+                <th>Status</th>
+                <th>Created At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var supplier in suppliers)
+            {
+                <tr>
+                    <td>@supplier.Name</td>
+                    <td>@supplier.ContactPerson</td>
+                    <td>@supplier.Email</td>
+                    <td>@supplier.Phone</td>
+                    <td>@supplier.Address</td>
+                    <td>
+                        @if (supplier.IsActive)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Inactive</span>
+                        }
+                    </td>
+                    <td>@supplier.CreatedAt.ToString("MM/dd/yyyy")</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" @onclick="() => EditSupplier(supplier)">Edit</button>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteSupplier(supplier.Id)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditMode ? "Edit Supplier" : "Add New Supplier")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input class="form-control" @bind="editingSupplier.Name" placeholder="Enter supplier name" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Contact Person</label>
+                        <input class="form-control" @bind="editingSupplier.ContactPerson" placeholder="Enter contact person" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" @bind="editingSupplier.Email" placeholder="Enter email" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Phone</label>
+                        <input class="form-control" @bind="editingSupplier.Phone" placeholder="Enter phone number" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <textarea class="form-control" @bind="editingSupplier.Address" placeholder="Enter address" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" @bind="editingSupplier.IsActive" />
+                        <label class="form-check-label">Active</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveSupplier">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IEnumerable<Supplier>? suppliers;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private string? successMessage;
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private Supplier editingSupplier = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        suppliers = await SupplierService.GetAllSuppliersAsync();
+        isLoading = false;
+    }
+
+    private void ShowAddModal()
+    {
+        isEditMode = false;
+        editingSupplier = new Supplier { IsActive = true };
+        showModal = true;
+        errorMessage = null;
+    }
+
+    private void EditSupplier(Supplier supplier)
+    {
+        isEditMode = true;
+        editingSupplier = new Supplier
+        {
+            Id = supplier.Id,
+            Name = supplier.Name,
+            ContactPerson = supplier.ContactPerson,
+            Email = supplier.Email,
+            Phone = supplier.Phone,
+            Address = supplier.Address,
+            IsActive = supplier.IsActive,
+            CreatedAt = supplier.CreatedAt
+        };
+        showModal = true;
+        errorMessage = null;
+    }
+
+    private async Task SaveSupplier()
+    {
+        if (string.IsNullOrWhiteSpace(editingSupplier.Name))
+        {
+            errorMessage = "Supplier name is required.";
+            return;
+        }
+
+        var result = isEditMode
+            ? await SupplierService.UpdateSupplierAsync(editingSupplier)
+            : await SupplierService.CreateSupplierAsync(editingSupplier);
+
+        if (result.Success)
+        {
+            successMessage = isEditMode ? "Supplier updated successfully." : "Supplier added successfully.";
+            showModal = false;
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Message;
+        }
+    }
+
+    private async Task DeleteSupplier(int id)
+    {
+        var result = await SupplierService.DeleteSupplierAsync(id);
+        if (result.Success)
+        {
+            successMessage = "Supplier deleted successfully.";
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Message;
+        }
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        errorMessage = null;
+    }
+}
